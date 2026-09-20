@@ -27,12 +27,12 @@ public:
         "Number of degrees for the rotation of the robot after stopping.";
 
     // Declare parameters (typed, with defaults)
-    this->declare_parameter<double>("obstacle", 0.0, obstacle_desc);
-    this->declare_parameter<double>("degrees", 90.0, degrees_desc);
+    this->declare_parameter<double>("obstacle", 0.1, obstacle_desc);
+    this->declare_parameter<int>("degrees", 90, degrees_desc);
 
     // Read parameters once at startup
     obstacle_ = this->get_parameter("obstacle").as_double();
-    degrees_ = this->get_parameter("degrees").as_double();
+    degrees_ = this->get_parameter("degrees").as_int();
 
     // Subscribe to Odometry Topic
     auto qos_odom =
@@ -64,36 +64,45 @@ private:
   PreApproachState pre_approach_state_ = PreApproachState::MOVE;
   bool front_wall_ = false;
   double obstacle_;
-  double degrees_;
+  int degrees_;
 
   void pre_approach_callback() {
-
     auto action = geometry_msgs::msg::Twist();
     switch (pre_approach_state_) {
-    case PreApproachState::MOVE:
+    case PreApproachState::MOVE: {
       RCLCPP_INFO(this->get_logger(), "State Move");
       if (front_wall_) {
         action.linear.x = 0.0;
         pre_approach_state_ = PreApproachState::ROTATE;
+        //  read current pos as init pos
+        double angle_rad = degrees_ * M_PI / 180.0;
+        target_yaw_ = tf2NormalizeAngle(current_yaw_ + angle_rad);
       } else {
         action.linear.x = 0.5;
       }
       command_publisher_->publish(action);
       break;
-    case PreApproachState::ROTATE:
-      // if current yaw != desired yaw
-      //  publish rotation cmd
-      // else
-      //  stop rotation cmd
-      //  change state to finish
+    }
+    case PreApproachState::ROTATE: {
       RCLCPP_INFO(this->get_logger(), "State Rotate");
-
+      double error = tf2NormalizeAngle(target_yaw_ - current_yaw_);
+      if (std::abs(error) < 0.05) {
+        action.angular.z = 0.0;
+        pre_approach_state_ = PreApproachState::STOP;
+      } else if (error > 0.0) {
+        action.angular.z = 0.3;
+      } else {
+        action.angular.z = -0.3;
+      }
+      command_publisher_->publish(action);
       break;
-    case PreApproachState::STOP:
+    }
+    case PreApproachState::STOP: {
       // State Finish
       //  Do nothing -> end task
       RCLCPP_INFO(this->get_logger(), "State Stop");
       break;
+    }
     }
   }
 

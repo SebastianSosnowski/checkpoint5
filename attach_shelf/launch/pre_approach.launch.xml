@@ -1,8 +1,8 @@
 <launch>
 
   <!-- Declare launch arguments -->
-  <!-- <arg name="turning_speed" default="0.0"/>
-  <arg name="forward_speed" default="0.0"/> -->
+  <arg name="obstacle" default="0.1"/>
+  <arg name="degrees" default="90.0"/>
 
   <!-- Node definition -->
   <node
@@ -12,8 +12,8 @@
     output="screen"
     emulate_tty="true">
     <!-- Parameters -->
-    <!-- <param name="turning_speed" value="$(var turning_speed)"/>
-    <param name="forward_speed" value="$(var forward_speed)"/> -->
+    <param name="obstacle" value="$(var obstacle)"/>
+    <param name="degrees" value="$(var degrees)"/>
 
   </node>
 
