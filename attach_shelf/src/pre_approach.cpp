@@ -1,5 +1,6 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <geometry_msgs/msg/twist.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -43,26 +44,37 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
   PreApproachState pre_approach_state_ = PreApproachState::MOVE;
+  bool front_wall_ = false;
 
   void pre_approach_callback() {
-    // State Move
-    // if detect wall x meters in front:
-    //  stop cmd
-    //  read current pos as init pos
-    //  change state to Rotate
-    // else move forward cmd
 
-    // State Rotate
-    // if current yaw != desired yaw
-    //  publish rotation cmd
-    // else
-    //  stop rotation cmd
-    //  change state to finish
-
-    // State Finish
-    //  Do nothing -> end task
-
-    ;
+    auto action = geometry_msgs::msg::Twist();
+    switch (pre_approach_state_) {
+    case PreApproachState::MOVE:
+      RCLCPP_INFO(this->get_logger(), "State Move");
+      if (front_wall_) {
+        action.linear.x = 0.0;
+        pre_approach_state_ = PreApproachState::ROTATE;
+        //  read current pos as init pos
+      } else {
+        action.linear.x = 0.5;
+      }
+      command_publisher_->publish(action);
+      break;
+    case PreApproachState::ROTATE:
+      // if current yaw != desired yaw
+      //  publish rotation cmd
+      // else
+      //  stop rotation cmd
+      //  change state to finish
+      RCLCPP_INFO(this->get_logger(), "State Rotate");
+      break;
+    case PreApproachState::STOP:
+      // State Finish
+      //  Do nothing -> end task
+      RCLCPP_INFO(this->get_logger(), "State Stop");
+      break;
+    }
   }
 
 private:
@@ -70,7 +82,10 @@ private:
       subscriber_laser_;
 
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-    ;
+    float distance = msg->ranges.at(149);
+    if (std::isfinite(distance) && distance < 0.5) {
+      front_wall_ = true;
+    }
   }
 
 private:
