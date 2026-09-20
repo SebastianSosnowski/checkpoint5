@@ -1,0 +1,20 @@
+<launch>
+
+  <!-- Declare launch arguments -->
+  <!-- <arg name="turning_speed" default="0.0"/>
+  <arg name="forward_speed" default="0.0"/> -->
+
+  <!-- Node definition -->
+  <node
+    pkg="attach_shelf"
+    exec="pre_approach_executable"
+    name="pre_approach_node"
+    output="screen"
+    emulate_tty="true">
+    <!-- Parameters -->
+    <!-- <param name="turning_speed" value="$(var turning_speed)"/>
+    <param name="forward_speed" value="$(var forward_speed)"/> -->
+
+  </node>
+
+</launch>
