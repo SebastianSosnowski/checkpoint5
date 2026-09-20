@@ -15,6 +15,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rcl_interfaces REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
 add_executable(pre_approach_executable src/pre_approach.cpp)
 ament_target_dependencies(pre_approach_executable 
@@ -25,6 +26,8 @@ ament_target_dependencies(pre_approach_executable
   tf2
   tf2_geometry_msgs
   rcl_interfaces
+  rclcpp_lifecycle
+  lifecycle_msgs
 )
 
 install(TARGETS 

@@ -4,9 +4,11 @@
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <geometry_msgs/msg/twist.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Scalar.h>
+#include <lifecycle_msgs/msg/transition.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -14,9 +16,9 @@
 
 enum class PreApproachState { MOVE, ROTATE, STOP };
 
-class PreApproachNode : public rclcpp::Node {
+class PreApproachNode : public rclcpp_lifecycle::LifecycleNode {
 public:
-  PreApproachNode() : Node("pre_approach_node") {
+  PreApproachNode() : rclcpp_lifecycle::LifecycleNode("pre_approach_node") {
     // Parameter descriptors
     rcl_interfaces::msg::ParameterDescriptor obstacle_desc;
     obstacle_desc.description =
@@ -30,9 +32,21 @@ public:
     this->declare_parameter<double>("obstacle", 0.1, obstacle_desc);
     this->declare_parameter<int>("degrees", 90, degrees_desc);
 
+    RCLCPP_INFO(this->get_logger(), "Node created. Currently unconfigured");
+  }
+
+protected:
+  CallbackReturn on_configure(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(this->get_logger(), "Configuring node...");
+
     // Read parameters once at startup
     obstacle_ = this->get_parameter("obstacle").as_double();
     degrees_ = this->get_parameter("degrees").as_int();
+
+    if (obstacle_ <= 0.0) {
+      RCLCPP_ERROR(this->get_logger(), "obstacle must be greater than 0.0");
+      return CallbackReturn::FAILURE;
+    }
 
     // Subscribe to Odometry Topic
     auto qos_odom =
@@ -52,14 +66,52 @@ public:
     command_publisher_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
     auto timer_period = std::chrono::milliseconds(100);
+
     timer_ = this->create_wall_timer(timer_period,
                                      [this] { pre_approach_callback(); });
+    RCLCPP_INFO(this->get_logger(), "Node configured successfully.");
 
-    RCLCPP_INFO(this->get_logger(), "Node started");
+    return CallbackReturn::SUCCESS;
+  }
+
+  CallbackReturn on_activate(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(this->get_logger(), "Activating node...");
+    command_publisher_->on_activate();
+    return CallbackReturn::SUCCESS;
+  }
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(this->get_logger(), "Deactivating node...");
+    command_publisher_->on_deactivate();
+    return CallbackReturn::SUCCESS;
+  }
+
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(this->get_logger(), "Cleaning up node...");
+    timer_.reset();
+    command_publisher_.reset();
+    return CallbackReturn::SUCCESS;
+  }
+
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(this->get_logger(), "Shutting down node...");
+    timer_.reset();
+    command_publisher_.reset();
+    return CallbackReturn::SUCCESS;
+  }
+
+  CallbackReturn on_error(const rclcpp_lifecycle::State &) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "An error occurred. Cleaning up resources...");
+
+    timer_.reset();
+    command_publisher_.reset();
+
+    return CallbackReturn::SUCCESS;
   }
 
 private:
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
+      command_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
   PreApproachState pre_approach_state_ = PreApproachState::MOVE;
   bool front_wall_ = false;
@@ -67,6 +119,10 @@ private:
   int degrees_;
 
   void pre_approach_callback() {
+    if (!command_publisher_ || !command_publisher_->is_activated()) {
+      return;
+    }
+
     auto action = geometry_msgs::msg::Twist();
     switch (pre_approach_state_) {
     case PreApproachState::MOVE: {
@@ -80,7 +136,6 @@ private:
       } else {
         action.linear.x = 0.5;
       }
-      command_publisher_->publish(action);
       break;
     }
     case PreApproachState::ROTATE: {
@@ -94,16 +149,16 @@ private:
       } else {
         action.angular.z = -0.3;
       }
-      command_publisher_->publish(action);
       break;
     }
     case PreApproachState::STOP: {
-      // State Finish
-      //  Do nothing -> end task
       RCLCPP_INFO(this->get_logger(), "State Stop");
+      action.linear.x = 0.0;
+      action.angular.z = 0.0;
       break;
     }
     }
+    command_publisher_->publish(action);
   }
 
 private:
@@ -112,9 +167,7 @@ private:
 
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     double distance = msg->ranges.at(149);
-    if (std::isfinite(distance) && distance < obstacle_) {
-      front_wall_ = true;
-    }
+    front_wall_ = (std::isfinite(distance) && distance < obstacle_);
   }
 
 private:
@@ -136,8 +189,12 @@ private:
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<PreApproachNode>();
-
-  rclcpp::spin(node);
+  node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+  rclcpp::spin(node->get_node_base_interface());
+  //   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
 }
