@@ -6,6 +6,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Scalar.h>
 
 #include <chrono>
 #include <cmath>
@@ -16,6 +17,23 @@ enum class PreApproachState { MOVE, ROTATE, STOP };
 class PreApproachNode : public rclcpp::Node {
 public:
   PreApproachNode() : Node("pre_approach_node") {
+    // Parameter descriptors
+    rcl_interfaces::msg::ParameterDescriptor obstacle_desc;
+    obstacle_desc.description =
+        "Distance (in meters) to the obstacle at which the robot will stop.";
+
+    rcl_interfaces::msg::ParameterDescriptor degrees_desc;
+    degrees_desc.description =
+        "Number of degrees for the rotation of the robot after stopping.";
+
+    // Declare parameters (typed, with defaults)
+    this->declare_parameter<double>("obstacle", 0.0, obstacle_desc);
+    this->declare_parameter<double>("degrees", 90.0, degrees_desc);
+
+    // Read parameters once at startup
+    obstacle_ = this->get_parameter("obstacle").as_double();
+    degrees_ = this->get_parameter("degrees").as_double();
+
     // Subscribe to Odometry Topic
     auto qos_odom =
         rclcpp::QoS(10).reliability(rclcpp::ReliabilityPolicy::Reliable);
@@ -45,6 +63,8 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
   PreApproachState pre_approach_state_ = PreApproachState::MOVE;
   bool front_wall_ = false;
+  double obstacle_;
+  double degrees_;
 
   void pre_approach_callback() {
 
@@ -55,7 +75,6 @@ private:
       if (front_wall_) {
         action.linear.x = 0.0;
         pre_approach_state_ = PreApproachState::ROTATE;
-        //  read current pos as init pos
       } else {
         action.linear.x = 0.5;
       }
@@ -68,6 +87,7 @@ private:
       //  stop rotation cmd
       //  change state to finish
       RCLCPP_INFO(this->get_logger(), "State Rotate");
+
       break;
     case PreApproachState::STOP:
       // State Finish
@@ -82,8 +102,8 @@ private:
       subscriber_laser_;
 
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-    float distance = msg->ranges.at(149);
-    if (std::isfinite(distance) && distance < 0.5) {
+    double distance = msg->ranges.at(149);
+    if (std::isfinite(distance) && distance < obstacle_) {
       front_wall_ = true;
     }
   }
@@ -91,20 +111,9 @@ private:
 private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber_;
   double current_yaw_ = std::numeric_limits<double>::infinity();
-  geometry_msgs::msg::Point current_position_{};
-  geometry_msgs::msg::Point target_position_{};
-  bool initial_position_received_ = false;
+  double target_yaw_ = std::numeric_limits<double>::infinity();
 
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-    // Update the current position and yaw from odometry
-    current_position_.x = msg->pose.pose.position.x;
-    current_position_.y = msg->pose.pose.position.y;
-
-    if (!initial_position_received_) {
-
-      initial_position_received_ = true;
-    }
-
     // Extract yaw from quaternion
     tf2::Quaternion q(
         msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
