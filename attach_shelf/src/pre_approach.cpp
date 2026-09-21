@@ -3,12 +3,12 @@
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <geometry_msgs/msg/twist.hpp>
+#include <lifecycle_msgs/msg/transition.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Scalar.h>
-#include <lifecycle_msgs/msg/transition.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -155,7 +155,13 @@ private:
       RCLCPP_INFO(this->get_logger(), "State Stop");
       action.linear.x = 0.0;
       action.angular.z = 0.0;
-      break;
+      command_publisher_->publish(action);
+
+      trigger_transition(
+          lifecycle_msgs::msg::Transition::TRANSITION_ACTIVE_SHUTDOWN);
+
+      rclcpp::shutdown();
+      return;
     }
     }
     command_publisher_->publish(action);
@@ -194,7 +200,6 @@ int main(int argc, char *argv[]) {
   node->trigger_transition(
       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
   rclcpp::spin(node->get_node_base_interface());
-  //   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
 }
