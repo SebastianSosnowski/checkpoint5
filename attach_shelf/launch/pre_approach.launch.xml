@@ -16,5 +16,11 @@
     <param name="degrees" value="$(var degrees)"/>
 
   </node>
+  <node
+  pkg="rviz2"
+  exec="rviz2"
+  name="rviz2"
+  output="screen"
+  args="-d $(find-pkg-share attach_shelf)/config/scene.rviz"/>
 
 </launch>
