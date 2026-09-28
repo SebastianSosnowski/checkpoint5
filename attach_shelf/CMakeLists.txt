@@ -16,10 +16,27 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
+
 find_package(rosidl_default_generators REQUIRED)
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/GoToLoading.srv"
+)
 
 add_executable(pre_approach_executable src/pre_approach.cpp)
 ament_target_dependencies(pre_approach_executable 
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  tf2
+  tf2_geometry_msgs
+  rcl_interfaces
+  rclcpp_lifecycle
+  lifecycle_msgs
+)
+
+add_executable(approach_executable src/pre_approach_v2.cpp)
+ament_target_dependencies(approach_executable 
   rclcpp
   sensor_msgs
   geometry_msgs
@@ -39,9 +56,31 @@ ament_target_dependencies(approach_srv_server_executable
   rclcpp
 )
 
+# =========================
+# Link generated service
+# =========================
+
+rosidl_get_typesupport_target(
+  cpp_typesupport_target
+  ${PROJECT_NAME}
+  "rosidl_typesupport_cpp"
+)
+
+target_link_libraries(
+  approach_executable
+  "${cpp_typesupport_target}"
+)
+
+target_link_libraries(
+  approach_srv_server_executable
+  "${cpp_typesupport_target}"
+)
+
+
 install(TARGETS 
 	pre_approach_executable
 	approach_srv_server_executable
+	approach_executable
 	DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME}/)
@@ -57,9 +96,5 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/GoToLoading.srv"
-)
 
 ament_package()

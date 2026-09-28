@@ -15,6 +15,8 @@
 #include <cmath>
 #include <string>
 
+using namespace std::chrono_literals;
+
 enum class PreApproachState { MOVE, ROTATE, STOP };
 
 class PreApproachNode : public rclcpp_lifecycle::LifecycleNode {
@@ -80,7 +82,7 @@ protected:
       if (!rclcpp::ok()) {
         RCLCPP_ERROR(this->get_logger(),
                      "Interrupted while waiting for the service. Exiting.");
-        return;
+        return CallbackReturn::FAILURE;
       }
       RCLCPP_INFO(this->get_logger(),
                   "Service %s not available, waiting again...",
@@ -191,14 +193,14 @@ private:
               auto response = future.get();
 
               if (response->complete) {
-                RCLCPP_INFO(this->get_logger(), "Approach completed: %s");
+                RCLCPP_INFO(this->get_logger(), "Approach completed");
 
                 trigger_transition(lifecycle_msgs::msg::Transition::
                                        TRANSITION_ACTIVE_SHUTDOWN);
 
                 rclcpp::shutdown();
               } else {
-                RCLCPP_ERROR(this->get_logger(), "Approach failed: %s");
+                RCLCPP_ERROR(this->get_logger(), "Approach failed");
               }
             });
       }

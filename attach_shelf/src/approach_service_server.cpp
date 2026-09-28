@@ -25,8 +25,7 @@ private:
   void approach_callback(
       const std::shared_ptr<attach_shelf::srv::GoToLoading::Request> request,
       std::shared_ptr<attach_shelf::srv::GoToLoading::Response> response) {
-    RCLCPP_INFO(this->get_logger(), "%s Service Server Called!!",
-                name_service.c_str());
+    RCLCPP_INFO(this->get_logger(), "Service Server Called!!");
   }
 };
 
