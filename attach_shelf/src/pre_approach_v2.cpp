@@ -51,6 +51,7 @@ protected:
     obstacle_ = this->get_parameter("obstacle").as_double();
     degrees_ = this->get_parameter("degrees").as_int();
     final_approach_ = this->get_parameter("final_approach").as_bool();
+
     if (obstacle_ <= 0.0) {
       RCLCPP_ERROR(this->get_logger(), "obstacle must be greater than 0.0");
       return CallbackReturn::FAILURE;
@@ -223,8 +224,14 @@ private:
       subscriber_laser_;
 
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+
     double distance = msg->ranges.at(149);
-    front_wall_ = (std::isfinite(distance) && distance < obstacle_);
+
+    front_wall_ = std::isfinite(distance) && distance < obstacle_;
+
+    RCLCPP_DEBUG(this->get_logger(),
+                 "distance[149] = %.3f, obstacle = %.3f, front_wall = %s",
+                 distance, obstacle_, front_wall_ ? "TRUE" : "FALSE");
   }
 
 private:
