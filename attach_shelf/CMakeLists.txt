@@ -16,6 +16,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 add_executable(pre_approach_executable src/pre_approach.cpp)
 ament_target_dependencies(pre_approach_executable 
@@ -30,8 +31,17 @@ ament_target_dependencies(pre_approach_executable
   lifecycle_msgs
 )
 
+add_executable(approach_srv_server_executable
+  src/approach_service_server.cpp
+)
+
+ament_target_dependencies(approach_srv_server_executable
+  rclcpp
+)
+
 install(TARGETS 
 	pre_approach_executable
+	approach_srv_server_executable
 	DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME}/)
@@ -47,5 +57,9 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/GoToLoading.srv"
+)
 
 ament_package()
