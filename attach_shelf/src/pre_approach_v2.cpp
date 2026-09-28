@@ -1,3 +1,4 @@
+#include "attach_shelf/srv/go_to_loading.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
@@ -71,6 +72,21 @@ protected:
                                      [this] { pre_approach_callback(); });
     RCLCPP_INFO(this->get_logger(), "Node configured successfully.");
 
+    // Create the Service Client object
+    std::string name_service = "/approach_shelf";
+    client_ = this->create_client<attach_shelf::srv::GoToLoading>(name_service);
+    // Wait for the service to be available (checks every second)
+    while (!client_->wait_for_service(1s)) {
+      if (!rclcpp::ok()) {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Interrupted while waiting for the service. Exiting.");
+        return;
+      }
+      RCLCPP_INFO(this->get_logger(),
+                  "Service %s not available, waiting again...",
+                  name_service.c_str());
+    }
+
     return CallbackReturn::SUCCESS;
   }
 
@@ -108,6 +124,10 @@ protected:
 
     return CallbackReturn::SUCCESS;
   }
+
+private:
+  rclcpp::Client<attach_shelf::srv::GoToLoading>::SharedPtr client_;
+  bool approach_started_ = false;
 
 private:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
@@ -153,15 +173,37 @@ private:
     }
     case PreApproachState::STOP: {
       RCLCPP_INFO(this->get_logger(), "State Stop");
+
       action.linear.x = 0.0;
       action.angular.z = 0.0;
       command_publisher_->publish(action);
 
-      trigger_transition(
-          lifecycle_msgs::msg::Transition::TRANSITION_ACTIVE_SHUTDOWN);
+      if (!approach_started_) {
+        approach_started_ = true;
 
-      rclcpp::shutdown();
-      return;
+        auto request =
+            std::make_shared<attach_shelf::srv::GoToLoading::Request>();
+
+        client_->async_send_request(
+            request,
+            [this](rclcpp::Client<attach_shelf::srv::GoToLoading>::SharedFuture
+                       future) {
+              auto response = future.get();
+
+              if (response->complete) {
+                RCLCPP_INFO(this->get_logger(), "Approach completed: %s");
+
+                trigger_transition(lifecycle_msgs::msg::Transition::
+                                       TRANSITION_ACTIVE_SHUTDOWN);
+
+                rclcpp::shutdown();
+              } else {
+                RCLCPP_ERROR(this->get_logger(), "Approach failed: %s");
+              }
+            });
+      }
+
+      break;
     }
     }
     command_publisher_->publish(action);
