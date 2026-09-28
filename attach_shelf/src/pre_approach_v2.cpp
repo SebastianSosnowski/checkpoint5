@@ -31,9 +31,14 @@ public:
     degrees_desc.description =
         "Number of degrees for the rotation of the robot after stopping.";
 
+    rcl_interfaces::msg::ParameterDescriptor final_approach_desc;
+    degrees_desc.description =
+        "Decide whether the robot will do the final approach or not.";
+
     // Declare parameters (typed, with defaults)
     this->declare_parameter<double>("obstacle", 0.1, obstacle_desc);
     this->declare_parameter<int>("degrees", 90, degrees_desc);
+    this->declare_parameter<bool>("final_approach", false, final_approach_desc);
 
     RCLCPP_INFO(this->get_logger(), "Node created. Currently unconfigured");
   }
@@ -45,7 +50,7 @@ protected:
     // Read parameters once at startup
     obstacle_ = this->get_parameter("obstacle").as_double();
     degrees_ = this->get_parameter("degrees").as_int();
-
+    final_approach_ = this->get_parameter("final_approach").as_bool();
     if (obstacle_ <= 0.0) {
       RCLCPP_ERROR(this->get_logger(), "obstacle must be greater than 0.0");
       return CallbackReturn::FAILURE;
@@ -130,6 +135,7 @@ protected:
 private:
   rclcpp::Client<attach_shelf::srv::GoToLoading>::SharedPtr client_;
   bool approach_started_ = false;
+  int final_approach_;
 
 private:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
@@ -185,6 +191,7 @@ private:
 
         auto request =
             std::make_shared<attach_shelf::srv::GoToLoading::Request>();
+        request->attach_to_shelf = final_approach_;
 
         client_->async_send_request(
             request,

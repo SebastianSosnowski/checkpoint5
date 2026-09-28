@@ -26,6 +26,7 @@ private:
       const std::shared_ptr<attach_shelf::srv::GoToLoading::Request> request,
       std::shared_ptr<attach_shelf::srv::GoToLoading::Response> response) {
     RCLCPP_INFO(this->get_logger(), "Service Server Called!!");
+    response->complete = true;
   }
 };
 
