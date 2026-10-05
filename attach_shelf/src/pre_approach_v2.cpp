@@ -32,7 +32,7 @@ public:
         "Number of degrees for the rotation of the robot after stopping.";
 
     rcl_interfaces::msg::ParameterDescriptor final_approach_desc;
-    degrees_desc.description =
+    final_approach_desc.description =
         "Decide whether the robot will do the final approach or not.";
 
     // Declare parameters (typed, with defaults)
@@ -136,7 +136,7 @@ protected:
 private:
   rclcpp::Client<attach_shelf::srv::GoToLoading>::SharedPtr client_;
   bool approach_started_ = false;
-  int final_approach_;
+  bool final_approach_;
 
 private:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr
@@ -224,14 +224,23 @@ private:
       subscriber_laser_;
 
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    int front_index =
+        static_cast<int>((0.0 - msg->angle_min) / msg->angle_increment);
 
-    double distance = msg->ranges.at(149);
+    if (front_index < 0 ||
+        front_index >= static_cast<int>(msg->ranges.size())) {
+      RCLCPP_WARN(this->get_logger(), "Front laser index out of range");
+      return;
+    }
+
+    double distance = msg->ranges[front_index];
 
     front_wall_ = std::isfinite(distance) && distance < obstacle_;
 
     RCLCPP_DEBUG(this->get_logger(),
-                 "distance[149] = %.3f, obstacle = %.3f, front_wall = %s",
-                 distance, obstacle_, front_wall_ ? "TRUE" : "FALSE");
+                 "distance[%d] = %.3f, obstacle = %.3f, front_wall = %s",
+                 front_index, distance, obstacle_,
+                 front_wall_ ? "TRUE" : "FALSE");
   }
 
 private:
