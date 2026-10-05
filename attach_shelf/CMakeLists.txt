@@ -54,6 +54,7 @@ add_executable(approach_srv_server_executable
 
 ament_target_dependencies(approach_srv_server_executable
   rclcpp
+  sensor_msgs
 )
 
 # =========================
