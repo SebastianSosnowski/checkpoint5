@@ -1,6 +1,7 @@
 #include "attach_shelf/srv/go_to_loading.hpp"
 
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include <geometry_msgs/msg/point.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <vector>
@@ -42,12 +43,13 @@ private:
       std::shared_ptr<attach_shelf::srv::GoToLoading::Response> response) {
     RCLCPP_INFO(this->get_logger(), "Service Server Called!!");
     // Detect legs of the shelf
-    bool detected = detect_shelf_legs();
+    bool detected = detect_shelf_legs(*last_scan_);
 
     if (detected) {
       // public cart_frame transform
+      auto center = calculate_shelf_center(*last_scan_, legs_idx_);
 
-      public_cart_frame();
+      public_cart_frame(center);
       // If attach_to_shelf True, move towards shelf using cart_frame
       // After reaching tf coordinates, move 30 cm more
       // Lift shelf
@@ -57,12 +59,36 @@ private:
     }
   }
 
-  bool detect_shelf_legs() {
+  geometry_msgs::msg::Point
+  calculate_shelf_center(const sensor_msgs::msg::LaserScan &msg,
+                         const std::vector<int> &legs_idx) {
+    auto leg1 = calculate_leg_position(legs_idx[0], msg);
+    auto leg2 = calculate_leg_position(legs_idx[1], msg);
+    geometry_msgs::msg::Point center_point{};
+    center_point.x = (leg1.x + leg2.x) / 2.0;
+    center_point.y = (leg1.y + leg2.y) / 2.0;
+    return center_point;
+  }
+
+  geometry_msgs::msg::Point
+  calculate_leg_position(int scan_idx, const sensor_msgs::msg::LaserScan &msg) {
+    double angle = msg.angle_min + scan_idx * msg.angle_increment;
+
+    double range = msg.ranges[scan_idx];
+
+    geometry_msgs::msg::Point pos{};
+    pos.x = range * std::cos(angle);
+    pos.y = range * std::sin(angle);
+    return pos;
+  }
+
+  bool detect_shelf_legs(const sensor_msgs::msg::LaserScan &msg) {
     std::vector<std::vector<int>> groups{};
     std::vector<int> current_group{};
+    legs_idx_.clear();
 
-    for (size_t i = 0; i < last_scan_->intensities.size(); ++i) {
-      if (last_scan_->intensities[i] > 7800) {
+    for (size_t i = 0; i < msg.intensities.size(); ++i) {
+      if (msg.intensities[i] > 7800) {
         current_group.push_back(i);
       } else if (!current_group.empty()) {
         groups.push_back(current_group);
@@ -85,10 +111,12 @@ private:
     return true;
   }
 
-  void public_cart_frame() {
+  void public_cart_frame(geometry_msgs::msg::Point &center) {
     for (int index : legs_idx_) {
       RCLCPP_INFO(this->get_logger(), "leg index: %d", index);
     }
+    RCLCPP_INFO(this->get_logger(), "Shelf center: x=%.3f, y=%.3f", center.x,
+                center.y);
   }
 };
 
