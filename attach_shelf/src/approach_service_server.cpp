@@ -77,7 +77,12 @@ private:
       }
       publish_cart_frame(*center_odom);
       // If attach_to_shelf True, move towards shelf using cart_frame
-      // After reaching tf coordinates, move 30 cm more
+      if (!request->attach_to_shelf) {
+        response->complete = false;
+        return;
+      }
+      // move to cart_frame
+      // After reaching cart_frame, move 30 cm more
       // Lift shelf
       response->complete = true;
     } else {
