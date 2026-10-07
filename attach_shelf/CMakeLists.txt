@@ -16,6 +16,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -55,6 +56,9 @@ add_executable(approach_srv_server_executable
 ament_target_dependencies(approach_srv_server_executable
   rclcpp
   sensor_msgs
+  geometry_msgs
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 # =========================

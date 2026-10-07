@@ -10,6 +10,7 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Scalar.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -163,7 +164,7 @@ private:
         double angle_rad = degrees_ * M_PI / 180.0;
         target_yaw_ = tf2NormalizeAngle(current_yaw_ + angle_rad);
       } else {
-        action.linear.x = 0.5;
+        action.linear.x = 1.0;
       }
       break;
     }
