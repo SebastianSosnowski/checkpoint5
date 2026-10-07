@@ -6,8 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /RobotModel1
-        - /LaserScan1
+        - /TF1
         - /Odometry1/Shape1
       Splitter Ratio: 0.5
     Tree Height: 553
@@ -179,6 +178,8 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        cart_frame:
+          Value: true
         odom:
           Value: true
         robot_base_docking_contact_link:
@@ -207,13 +208,15 @@ Visualization Manager:
           Value: true
         robot_top_cover_link:
           Value: true
-      Marker Scale: 0.30000001192092896
+      Marker Scale: 0.5
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
         odom:
+          cart_frame:
+            {}
           robot_base_footprint:
             robot_base_link:
               robot_evelator_base_link:
@@ -339,7 +342,7 @@ Visualization Manager:
       Name: Current View
       Near Clip Distance: 0.009999999776482582
       Pitch: 1.5603972673416138
-      Target Frame: <Fixed Frame>
+      Target Frame: odom
       Value: Orbit (rviz)
       Yaw: 3.143583059310913
     Saved:
