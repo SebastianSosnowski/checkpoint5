@@ -4,6 +4,7 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
@@ -17,6 +18,14 @@
 class ApproachSrvServerNode : public rclcpp::Node {
 public:
   ApproachSrvServerNode() : Node("approach_srv_server_node") {
+
+    // Init command Publisher
+    cmd_vel_pub_ =
+        this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+
+    // Control loop for shelf approach part
+    auto timer_period = std::chrono::milliseconds(50);
+    timer_ = this->create_wall_timer(timer_period, [this] { control_loop(); });
 
     // Subscribe to Laser Topic
     auto qos_laser =
@@ -45,6 +54,64 @@ public:
                 name_service.c_str());
   }
 
+  // Machine state
+private:
+  enum class ApproachState {
+    IDLE,
+    ROTATING,
+    DRIVING,
+    FORWARD_30CM,
+    LIFTING,
+    DONE
+  };
+
+  ApproachState approach_state_ = ApproachState::IDLE;
+
+  void control_loop() {
+    switch (approach_state_) {
+    case ApproachState::IDLE:
+      break;
+
+    case ApproachState::ROTATING: {
+      auto cart_transform = get_cart_transform();
+      if (!cart_transform) {
+        break;
+      }
+
+      double angle = calculate_angle_to_cart(*cart_transform);
+      constexpr double angle_tolerance = 0.05;
+
+      geometry_msgs::msg::Twist cmd;
+
+      if (std::abs(angle) < angle_tolerance) {
+        cmd.angular.z = 0.0;
+        approach_state_ = ApproachState::DRIVING;
+        RCLCPP_INFO(this->get_logger(), "Rotated to the shelf, angle: %.2f",
+                    angle);
+      } else {
+
+        cmd.angular.z = 0.5 * angle;
+      }
+      cmd_vel_pub_->publish(cmd);
+      break;
+    }
+
+    case ApproachState::DRIVING:
+      RCLCPP_INFO(this->get_logger(), "Driving!!");
+      break;
+
+    case ApproachState::FORWARD_30CM:
+      break;
+
+    case ApproachState::LIFTING:
+      break;
+
+    case ApproachState::DONE:
+      break;
+    }
+  }
+
+  // TF
 private:
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -56,6 +123,9 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
       subscriber_laser_;
   sensor_msgs::msg::LaserScan::SharedPtr last_scan_;
+
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
 
   std::vector<int> legs_idx_{};
 
@@ -81,12 +151,36 @@ private:
         response->complete = false;
         return;
       }
-      // move to cart_frame
-      // After reaching cart_frame, move 30 cm more
-      // Lift shelf
+      approach_state_ = ApproachState::ROTATING;
+
       response->complete = true;
     } else {
       response->complete = false;
+    }
+  }
+
+  double calculate_angle_to_cart(
+      const geometry_msgs::msg::TransformStamped &transform) {
+    double x = transform.transform.translation.x;
+    double y = transform.transform.translation.y;
+
+    return std::atan2(y, x);
+  }
+
+  std::optional<geometry_msgs::msg::TransformStamped> get_cart_transform() {
+    try {
+      auto transform = tf_buffer_->lookupTransform(
+          "robot_base_link", "cart_frame", tf2::TimePointZero);
+
+      return transform;
+
+    } catch (const tf2::TransformException &ex) {
+
+      RCLCPP_WARN(this->get_logger(),
+                  "Could not transform cart_frame to robot_base_link: %s",
+                  ex.what());
+
+      return std::nullopt;
     }
   }
 
