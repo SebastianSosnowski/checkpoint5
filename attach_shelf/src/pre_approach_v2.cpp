@@ -12,8 +12,10 @@
 #include <tf2/LinearMath/Scalar.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <string>
 
 using namespace std::chrono_literals;
@@ -145,6 +147,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
   PreApproachState pre_approach_state_ = PreApproachState::MOVE;
   bool front_wall_ = false;
+  double front_wall_distance_ = std::numeric_limits<double>::infinity();
   double obstacle_;
   int degrees_;
 
@@ -154,26 +157,33 @@ private:
     }
 
     auto action = geometry_msgs::msg::Twist();
+
     switch (pre_approach_state_) {
     case PreApproachState::MOVE: {
-      RCLCPP_INFO(this->get_logger(), "State Move");
       if (front_wall_) {
         action.linear.x = 0.0;
         pre_approach_state_ = PreApproachState::ROTATE;
         //  read current pos as init pos
         double angle_rad = degrees_ * M_PI / 180.0;
         target_yaw_ = tf2NormalizeAngle(current_yaw_ + angle_rad);
+        RCLCPP_INFO(this->get_logger(), "Reached to the wall, start rotating!");
       } else {
-        action.linear.x = 1.0;
+        if (std::isfinite(front_wall_distance_)) {
+          action.linear.x = std::clamp(0.5, 0.5 * front_wall_distance_, 1.0);
+        } else {
+          action.linear.x = 1.0;
+        }
       }
       break;
     }
     case PreApproachState::ROTATE: {
-      RCLCPP_INFO(this->get_logger(), "State Rotate");
       double error = tf2NormalizeAngle(target_yaw_ - current_yaw_);
       if (std::abs(error) < 0.05) {
         action.angular.z = 0.0;
         pre_approach_state_ = PreApproachState::STOP;
+        RCLCPP_INFO(this->get_logger(),
+                    "Rotated by requested angle, end pre-approach!");
+
       } else if (error > 0.0) {
         action.angular.z = 0.3;
       } else {
@@ -182,7 +192,6 @@ private:
       break;
     }
     case PreApproachState::STOP: {
-      RCLCPP_INFO(this->get_logger(), "State Stop");
 
       action.linear.x = 0.0;
       action.angular.z = 0.0;
@@ -234,13 +243,14 @@ private:
       return;
     }
 
-    double distance = msg->ranges[front_index];
+    front_wall_distance_ = msg->ranges[front_index];
 
-    front_wall_ = std::isfinite(distance) && distance < obstacle_;
+    front_wall_ =
+        std::isfinite(front_wall_distance_) && front_wall_distance_ < obstacle_;
 
     RCLCPP_DEBUG(this->get_logger(),
                  "distance[%d] = %.3f, obstacle = %.3f, front_wall = %s",
-                 front_index, distance, obstacle_,
+                 front_index, front_wall_distance_, obstacle_,
                  front_wall_ ? "TRUE" : "FALSE");
   }
 

@@ -11,6 +11,8 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -22,10 +24,6 @@ public:
     // Init command Publisher
     cmd_vel_pub_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-
-    // Control loop for shelf approach part
-    auto timer_period = std::chrono::milliseconds(50);
-    timer_ = this->create_wall_timer(timer_period, [this] { control_loop(); });
 
     // Subscribe to Laser Topic
     auto qos_laser =
@@ -56,58 +54,76 @@ public:
 
   // Machine state
 private:
-  enum class ApproachState {
-    IDLE,
-    ROTATING,
-    DRIVING,
-    FORWARD_30CM,
-    LIFTING,
-    DONE
-  };
+  enum class ApproachState { ROTATING, DRIVING, FORWARD_30CM, LIFTING, DONE };
 
-  ApproachState approach_state_ = ApproachState::IDLE;
+  void final_approach() {
+    rclcpp::Rate rate(20);
+    ApproachState approach_state = ApproachState::ROTATING;
+    while (approach_state != ApproachState::DONE) {
+      switch (approach_state) {
+      case ApproachState::ROTATING: {
+        auto cart_transform = get_cart_transform();
+        if (!cart_transform) {
+          break;
+        }
 
-  void control_loop() {
-    switch (approach_state_) {
-    case ApproachState::IDLE:
-      break;
+        double angle = calculate_angle_to_cart(*cart_transform);
+        constexpr double angle_tolerance = 0.01;
 
-    case ApproachState::ROTATING: {
-      auto cart_transform = get_cart_transform();
-      if (!cart_transform) {
+        geometry_msgs::msg::Twist cmd;
+
+        if (std::abs(angle) < angle_tolerance) {
+          cmd.angular.z = 0.0;
+          approach_state = ApproachState::DRIVING;
+          RCLCPP_INFO(this->get_logger(), "Rotated to the shelf, angle: %.2f",
+                      angle);
+        } else if (angle > 0.0) {
+          cmd.angular.z = std::clamp(0.15, 0.5 * angle, 1.0);
+        } else {
+          cmd.angular.z = std::clamp(-1.0, 0.5 * angle, -0.15);
+        }
+        cmd_vel_pub_->publish(cmd);
         break;
       }
 
-      double angle = calculate_angle_to_cart(*cart_transform);
-      constexpr double angle_tolerance = 0.05;
+      case ApproachState::DRIVING: {
+        auto cart_transform = get_cart_transform();
 
-      geometry_msgs::msg::Twist cmd;
+        if (!cart_transform) {
+          break;
+        }
+        double x = cart_transform->transform.translation.x;
+        double y = cart_transform->transform.translation.y;
+        // double distance = std::hypot(x, y);
 
-      if (std::abs(angle) < angle_tolerance) {
-        cmd.angular.z = 0.0;
-        approach_state_ = ApproachState::DRIVING;
-        RCLCPP_INFO(this->get_logger(), "Rotated to the shelf, angle: %.2f",
-                    angle);
-      } else {
+        constexpr double x_tolerance = 0.05;
 
-        cmd.angular.z = 0.5 * angle;
+        geometry_msgs::msg::Twist cmd;
+
+        if (x < x_tolerance) {
+          cmd.linear.x = 0.0;
+          approach_state = ApproachState::FORWARD_30CM;
+          RCLCPP_INFO(this->get_logger(), "Approached cart_frame!!");
+        } else {
+          cmd.linear.x = 0.3;
+          RCLCPP_INFO(this->get_logger(), "Driving: x=%.3f, y=%.3f", x, y);
+        }
+        cmd_vel_pub_->publish(cmd);
+        break;
       }
-      cmd_vel_pub_->publish(cmd);
-      break;
-    }
 
-    case ApproachState::DRIVING:
-      RCLCPP_INFO(this->get_logger(), "Driving!!");
-      break;
+      case ApproachState::FORWARD_30CM:
+        RCLCPP_INFO(this->get_logger(), "FORWARD_30CM!!");
+        approach_state = ApproachState::DONE;
+        break;
 
-    case ApproachState::FORWARD_30CM:
-      break;
+      case ApproachState::LIFTING:
+        break;
 
-    case ApproachState::LIFTING:
-      break;
-
-    case ApproachState::DONE:
-      break;
+      case ApproachState::DONE:
+        return;
+      }
+      rate.sleep();
     }
   }
 
@@ -125,7 +141,6 @@ private:
   sensor_msgs::msg::LaserScan::SharedPtr last_scan_;
 
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
-  rclcpp::TimerBase::SharedPtr timer_;
 
   std::vector<int> legs_idx_{};
 
@@ -151,8 +166,7 @@ private:
         response->complete = false;
         return;
       }
-      approach_state_ = ApproachState::ROTATING;
-
+      final_approach();
       response->complete = true;
     } else {
       response->complete = false;
