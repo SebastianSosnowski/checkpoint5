@@ -99,7 +99,7 @@ private:
 
     transform.transform.translation.x = center_odom.point.x;
     transform.transform.translation.y = center_odom.point.y;
-    transform.transform.translation.z = center_odom.point.z;
+    transform.transform.translation.z = 0.0;
 
     transform.transform.rotation.x = 0.0;
     transform.transform.rotation.y = 0.0;
