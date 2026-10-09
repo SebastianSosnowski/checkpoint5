@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+// Detects the shelf, publishes its center frame, and optionally attaches to it.
 class ApproachSrvServerNode : public rclcpp::Node {
 public:
   ApproachSrvServerNode() : Node("approach_srv_server_node") {
@@ -62,6 +63,7 @@ public:
 private:
   enum class ApproachState { ROTATING, DRIVING, FORWARD_30CM, LIFTING, DONE };
 
+  // Drives to cart_frame, advances 30 cm, and raises the elevator.
   void final_approach() {
     rclcpp::Rate rate(20);
     ApproachState approach_state = ApproachState::ROTATING;
@@ -172,6 +174,7 @@ private:
 
   std::vector<int> legs_idx_{};
 
+  // Handles shelf detection and performs the requested service operation.
   void approach_callback(
       const std::shared_ptr<attach_shelf::srv::GoToLoading::Request> request,
       std::shared_ptr<attach_shelf::srv::GoToLoading::Response> response) {
@@ -208,6 +211,7 @@ private:
     }
   }
 
+  // Returns the bearing to cart_frame in the robot's base frame, in radians.
   double calculate_angle_to_cart(
       const geometry_msgs::msg::TransformStamped &transform) {
     double x = transform.transform.translation.x;
@@ -216,6 +220,7 @@ private:
     return std::atan2(y, x);
   }
 
+  // Looks up cart_frame relative to the robot base, or returns nullopt on error.
   std::optional<geometry_msgs::msg::TransformStamped> get_cart_transform() {
     try {
       auto transform = tf_buffer_->lookupTransform(
@@ -233,6 +238,7 @@ private:
     }
   }
 
+  // Publishes cart_frame at the detected shelf center in the odom frame.
   void publish_cart_frame(const geometry_msgs::msg::PointStamped &center_odom) {
     geometry_msgs::msg::TransformStamped transform;
 
@@ -253,6 +259,7 @@ private:
     RCLCPP_INFO(this->get_logger(), "Cart Frame Created!");
   }
 
+  // Transforms a stamped point into odom; returns nullopt if TF lookup fails.
   std::optional<geometry_msgs::msg::PointStamped>
   transform_point_to_odom(const geometry_msgs::msg::PointStamped &point) {
     std::string fixed_frame = "odom";
@@ -288,6 +295,7 @@ private:
     }
   }
 
+  // Computes the midpoint between the two detected shelf-leg scan indices.
   geometry_msgs::msg::PointStamped
   calculate_shelf_center_point(const sensor_msgs::msg::LaserScan &msg,
                                const std::vector<int> &legs_idx) {
@@ -305,6 +313,7 @@ private:
     return center_point;
   }
 
+  // Converts one scan range and index into a Cartesian point in the scan frame.
   geometry_msgs::msg::Point
   calculate_leg_position(int scan_idx, const sensor_msgs::msg::LaserScan &msg) {
     double angle = msg.angle_min + scan_idx * msg.angle_increment;
@@ -317,6 +326,7 @@ private:
     return pos;
   }
 
+  // Finds exactly two high-intensity groups and stores their center indices.
   bool detect_shelf_legs(const sensor_msgs::msg::LaserScan &msg) {
     std::vector<std::vector<int>> groups{};
     std::vector<int> current_group{};

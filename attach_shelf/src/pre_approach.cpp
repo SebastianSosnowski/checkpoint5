@@ -16,6 +16,7 @@
 
 enum class PreApproachState { MOVE, ROTATE, STOP };
 
+// Moves to the loading position, then rotates using laser and odometry data.
 class PreApproachNode : public rclcpp_lifecycle::LifecycleNode {
 public:
   PreApproachNode() : rclcpp_lifecycle::LifecycleNode("pre_approach_node") {
@@ -118,6 +119,7 @@ private:
   double obstacle_;
   int degrees_;
 
+  // Publishes velocity commands for the current pre-approach state.
   void pre_approach_callback() {
     if (!command_publisher_ || !command_publisher_->is_activated()) {
       return;
@@ -171,6 +173,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
       subscriber_laser_;
 
+  // Updates whether the obstacle is within the configured stopping distance.
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     double distance = msg->ranges.at(149);
     front_wall_ = (std::isfinite(distance) && distance < obstacle_);
@@ -181,6 +184,7 @@ private:
   double current_yaw_ = std::numeric_limits<double>::infinity();
   double target_yaw_ = std::numeric_limits<double>::infinity();
 
+  // Extracts the robot's current yaw from the odometry orientation.
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     // Extract yaw from quaternion
     tf2::Quaternion q(
