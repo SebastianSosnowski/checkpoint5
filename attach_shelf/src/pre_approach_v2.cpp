@@ -1,16 +1,14 @@
 #include "attach_shelf/srv/go_to_loading.hpp"
-#include "geometry_msgs/msg/point.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <geometry_msgs/msg/twist.hpp>
 #include <lifecycle_msgs/msg/transition.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Scalar.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <algorithm>
 #include <chrono>

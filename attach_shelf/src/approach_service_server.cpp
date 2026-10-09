@@ -16,6 +16,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 class ApproachSrvServerNode : public rclcpp::Node {
@@ -175,6 +176,13 @@ private:
       const std::shared_ptr<attach_shelf::srv::GoToLoading::Request> request,
       std::shared_ptr<attach_shelf::srv::GoToLoading::Response> response) {
     RCLCPP_INFO(this->get_logger(), "Approach Service Server Called!!");
+
+    if (!last_scan_) {
+      RCLCPP_WARN(this->get_logger(),
+                  "No laser scan received yet; cannot detect shelf legs");
+      response->complete = false;
+      return;
+    }
 
     bool detected = detect_shelf_legs(*last_scan_);
 

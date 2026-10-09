@@ -31,7 +31,6 @@ ament_target_dependencies(pre_approach_executable
   geometry_msgs
   nav_msgs
   tf2
-  tf2_geometry_msgs
   rcl_interfaces
   rclcpp_lifecycle
   lifecycle_msgs
@@ -44,7 +43,6 @@ ament_target_dependencies(approach_executable
   geometry_msgs
   nav_msgs
   tf2
-  tf2_geometry_msgs
   rcl_interfaces
   rclcpp_lifecycle
   lifecycle_msgs
@@ -58,6 +56,7 @@ ament_target_dependencies(approach_srv_server_executable
   rclcpp
   sensor_msgs
   geometry_msgs
+  tf2
   tf2_ros
   tf2_geometry_msgs
   std_msgs
