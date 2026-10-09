@@ -174,7 +174,7 @@ private:
   void approach_callback(
       const std::shared_ptr<attach_shelf::srv::GoToLoading::Request> request,
       std::shared_ptr<attach_shelf::srv::GoToLoading::Response> response) {
-    RCLCPP_INFO(this->get_logger(), "Service Server Called!!");
+    RCLCPP_INFO(this->get_logger(), "Approach Service Server Called!!");
 
     bool detected = detect_shelf_legs(*last_scan_);
 
@@ -251,25 +251,25 @@ private:
     try {
       auto transform = tf_buffer_->lookupTransform(
           fixed_frame, point.header.frame_id, tf2::TimePointZero);
-      RCLCPP_INFO(this->get_logger(), "Transform %s -> %s",
-                  point.header.frame_id.c_str(), fixed_frame.c_str());
+      RCLCPP_DEBUG(this->get_logger(), "Transform %s -> %s",
+                   point.header.frame_id.c_str(), fixed_frame.c_str());
 
-      RCLCPP_INFO(this->get_logger(), "Position: x=%.3f, y=%.3f, z=%.3f",
-                  transform.transform.translation.x,
-                  transform.transform.translation.y,
-                  transform.transform.translation.z);
-      RCLCPP_INFO(
+      RCLCPP_DEBUG(this->get_logger(), "Position: x=%.3f, y=%.3f, z=%.3f",
+                   transform.transform.translation.x,
+                   transform.transform.translation.y,
+                   transform.transform.translation.z);
+      RCLCPP_DEBUG(
           this->get_logger(), "Rotation: x=%.3f, y=%.3f, z=%.3f, w=%.3f",
           transform.transform.rotation.x, transform.transform.rotation.y,
           transform.transform.rotation.z, transform.transform.rotation.w);
 
       geometry_msgs::msg::PointStamped point_odom;
       tf2::doTransform(point, point_odom, transform);
-      RCLCPP_INFO(this->get_logger(),
-                  "Shelf center in odom: x=%.3f, y=%.3f, z=%.3f",
-                  point_odom.point.x, point_odom.point.y, point_odom.point.z);
-      RCLCPP_INFO(this->get_logger(), "Shelf center frame: %s",
-                  point_odom.header.frame_id.c_str());
+      RCLCPP_DEBUG(this->get_logger(),
+                   "Shelf center in odom: x=%.3f, y=%.3f, z=%.3f",
+                   point_odom.point.x, point_odom.point.y, point_odom.point.z);
+      RCLCPP_DEBUG(this->get_logger(), "Shelf center frame: %s",
+                   point_odom.header.frame_id.c_str());
       return point_odom;
 
     } catch (const tf2::TransformException &ex) {
