@@ -2,6 +2,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "std_msgs/msg/string.hpp"
 #include <geometry_msgs/msg/twist.hpp>
 #include <lifecycle_msgs/msg/transition.hpp>
 #include <rclcpp/rclcpp.hpp>

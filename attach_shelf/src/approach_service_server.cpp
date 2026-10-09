@@ -1,6 +1,7 @@
 #include "attach_shelf/srv/go_to_loading.hpp"
 
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "std_msgs/msg/string.hpp"
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -24,6 +25,10 @@ public:
     // Init command Publisher
     cmd_vel_pub_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+
+    // Init elevator_up Publisher
+    elevator_up_pub_ =
+        this->create_publisher<std_msgs::msg::String>("/elevator_up", 10);
 
     // Subscribe to Laser Topic
     auto qos_laser =
@@ -59,7 +64,7 @@ private:
   void final_approach() {
     rclcpp::Rate rate(20);
     ApproachState approach_state = ApproachState::ROTATING;
-    while (approach_state != ApproachState::DONE) {
+    while (true) {
       switch (approach_state) {
       case ApproachState::ROTATING: {
         auto cart_transform = get_cart_transform();
@@ -104,7 +109,7 @@ private:
           RCLCPP_INFO(this->get_logger(), "Approached cart_frame!!");
         } else {
           cmd.linear.x = 0.3;
-          RCLCPP_INFO(this->get_logger(), "Driving: x=%.3f", x);
+          RCLCPP_DEBUG(this->get_logger(), "Driving: x=%.3f", x);
         }
         cmd_vel_pub_->publish(cmd);
         break;
@@ -126,7 +131,7 @@ private:
           RCLCPP_INFO(this->get_logger(), "Moved forward 30cm!!");
         } else {
           cmd.linear.x = 0.3;
-          RCLCPP_INFO(this->get_logger(), "Driving: x=%.3f", x);
+          RCLCPP_DEBUG(this->get_logger(), "Driving: x=%.3f", x);
         }
         cmd_vel_pub_->publish(cmd);
         break;
@@ -134,11 +139,15 @@ private:
 
       case ApproachState::LIFTING: {
         RCLCPP_INFO(this->get_logger(), "LIFTING!!");
+        std_msgs::msg::String msg;
+        elevator_up_pub_->publish(msg);
         approach_state = ApproachState::DONE;
         break;
       }
-      case ApproachState::DONE:
+      case ApproachState::DONE: {
+        RCLCPP_INFO(this->get_logger(), "Final approach done 😊!!");
         return;
+      }
       }
       rate.sleep();
     }
@@ -158,6 +167,7 @@ private:
   sensor_msgs::msg::LaserScan::SharedPtr last_scan_;
 
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr elevator_up_pub_;
 
   std::vector<int> legs_idx_{};
 
