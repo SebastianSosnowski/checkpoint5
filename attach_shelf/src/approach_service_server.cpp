@@ -93,8 +93,6 @@ private:
           break;
         }
         double x = cart_transform->transform.translation.x;
-        double y = cart_transform->transform.translation.y;
-        // double distance = std::hypot(x, y);
 
         constexpr double x_tolerance = 0.05;
 
@@ -106,20 +104,39 @@ private:
           RCLCPP_INFO(this->get_logger(), "Approached cart_frame!!");
         } else {
           cmd.linear.x = 0.3;
-          RCLCPP_INFO(this->get_logger(), "Driving: x=%.3f, y=%.3f", x, y);
+          RCLCPP_INFO(this->get_logger(), "Driving: x=%.3f", x);
         }
         cmd_vel_pub_->publish(cmd);
         break;
       }
 
-      case ApproachState::FORWARD_30CM:
-        RCLCPP_INFO(this->get_logger(), "FORWARD_30CM!!");
+      case ApproachState::FORWARD_30CM: {
+        auto cart_transform = get_cart_transform();
+
+        if (!cart_transform) {
+          break;
+        }
+        double x = cart_transform->transform.translation.x;
+
+        geometry_msgs::msg::Twist cmd;
+
+        if (std::abs(x) >= 0.30) {
+          cmd.linear.x = 0.0;
+          approach_state = ApproachState::LIFTING;
+          RCLCPP_INFO(this->get_logger(), "Moved forward 30cm!!");
+        } else {
+          cmd.linear.x = 0.3;
+          RCLCPP_INFO(this->get_logger(), "Driving: x=%.3f", x);
+        }
+        cmd_vel_pub_->publish(cmd);
+        break;
+      }
+
+      case ApproachState::LIFTING: {
+        RCLCPP_INFO(this->get_logger(), "LIFTING!!");
         approach_state = ApproachState::DONE;
         break;
-
-      case ApproachState::LIFTING:
-        break;
-
+      }
       case ApproachState::DONE:
         return;
       }
